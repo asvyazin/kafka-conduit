@@ -18,7 +18,9 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Kafka.Messages.Response,
                        Kafka.Messages.Request,
-                       Kafka.Messages.Utils
+                       Kafka.Messages.Utils,
+                       Kafka.Messages.MetadataRequest,
+                       Kafka.Messages.MetadataResponse
   -- other-modules:       
   -- other-extensions:    
   build-depends:       attoparsec >= 0.11, attoparsec-binary >= 0.2, attoparsec-conduit >= 1.0, base >=4.6 && <4.7, binary >= 0.5, bytestring >= 0.10, conduit >= 1.0, conduit-combinators >= 0.2, network-conduit >= 1.0

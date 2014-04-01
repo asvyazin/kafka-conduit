@@ -24,25 +24,29 @@ putBytes bytes = putWord32be (toEnum $ B.length bytes) >> putByteString bytes
 putString :: B.ByteString -> Put
 putString = putBytes
 
-data ApiKey = ProduceRequest
-            | FetchRequest
-            | OffsetRequest
-            | MetadataRequest
-            | LeaderAndIsrRequest
-            | StopReplicaRequest
-            | OffsetCommitRequest
-            | OffsetFetchRequest
+putArray :: (a -> Put) -> [a] -> Put
+putArray put arr = let l = length arr in
+  putWord32be (toEnum l) >> mapM_ put arr
+
+data ApiKey = ProduceRequestApiKey
+            | FetchRequestApiKey
+            | OffsetRequestApiKey
+            | MetadataRequestApiKey
+            | LeaderAndIsrRequestApiKey
+            | StopReplicaRequestApiKey
+            | OffsetCommitRequestApiKey
+            | OffsetFetchRequestApiKey
             deriving (Eq, Show)
 
 fromApiKey :: ApiKey -> Int16
-fromApiKey ProduceRequest = 0
-fromApiKey FetchRequest = 1
-fromApiKey OffsetRequest = 2
-fromApiKey MetadataRequest = 3
-fromApiKey LeaderAndIsrRequest = 4
-fromApiKey StopReplicaRequest = 5
-fromApiKey OffsetCommitRequest = 8
-fromApiKey OffsetFetchRequest = 9
+fromApiKey ProduceRequestApiKey = 0
+fromApiKey FetchRequestApiKey = 1
+fromApiKey OffsetRequestApiKey = 2
+fromApiKey MetadataRequestApiKey = 3
+fromApiKey LeaderAndIsrRequestApiKey = 4
+fromApiKey StopReplicaRequestApiKey = 5
+fromApiKey OffsetCommitRequestApiKey = 8
+fromApiKey OffsetFetchRequestApiKey = 9
 
 putApiKey :: ApiKey -> Put
 putApiKey = putInt16be . fromApiKey
@@ -62,3 +66,6 @@ putRawRequest r = putApiKey (apiKey r)
 
 sendRawRequests :: Monad m => Conduit RawRequest m B.ByteString
 sendRawRequests = C.map $ toStrict . runPut . putRawRequest
+
+class RequestMessage a where
+  toRawRequest :: Int32 -> B.ByteString -> a -> RawRequest
