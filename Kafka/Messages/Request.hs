@@ -24,14 +24,37 @@ putBytes bytes = putWord32be (toEnum $ B.length bytes) >> putByteString bytes
 putString :: B.ByteString -> Put
 putString = putBytes
 
-data RawRequest = RawRequest { apiKey :: Int16
+data ApiKey = ProduceRequest
+            | FetchRequest
+            | OffsetRequest
+            | MetadataRequest
+            | LeaderAndIsrRequest
+            | StopReplicaRequest
+            | OffsetCommitRequest
+            | OffsetFetchRequest
+            deriving (Eq, Show)
+
+fromApiKey :: ApiKey -> Int16
+fromApiKey ProduceRequest = 0
+fromApiKey FetchRequest = 1
+fromApiKey OffsetRequest = 2
+fromApiKey MetadataRequest = 3
+fromApiKey LeaderAndIsrRequest = 4
+fromApiKey StopReplicaRequest = 5
+fromApiKey OffsetCommitRequest = 8
+fromApiKey OffsetFetchRequest = 9
+
+putApiKey :: ApiKey -> Put
+putApiKey = putInt16be . fromApiKey
+
+data RawRequest = RawRequest { apiKey :: ApiKey
                              , apiVersion :: Int16
                              , correlationId :: Int32
                              , clientId :: B.ByteString
                              , requestMessageBytes :: B.ByteString } deriving (Eq, Show)
 
 putRawRequest :: RawRequest -> Put
-putRawRequest r = putInt16be (apiKey r)
+putRawRequest r = putApiKey (apiKey r)
                   >> putInt16be (apiVersion r)
                   >> putInt32be (correlationId r)
                   >> putString (clientId r)
