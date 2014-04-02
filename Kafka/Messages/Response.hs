@@ -4,6 +4,7 @@ import Kafka.Messages.Utils
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Catch
 import qualified Data.Attoparsec as P
 import Data.Attoparsec.Binary
 import Data.Binary.Get hiding (getBytes)
