@@ -29,6 +29,10 @@ library
 
 executable MetadataTool
   main-is:             Main.hs
-  hs-source-dirs:      MetadataTool
-  build-depends:       base >= 4.6
+  hs-source-dirs:      MetadataTool, .
+  other-modules:       Kafka.Messages.Request,
+                       Kafka.Messages.Response,
+                       Kafka.Messages.MetadataRequest,
+                       Kafka.Messages.MetadataResponse
+  build-depends:       attoparsec >= 0.11, attoparsec-binary >= 0.2, base >= 4.6, binary >= 0.5, bytestring >= 0.10, conduit >= 1.1, conduit-combinators >= 0.2, conduit-extra >= 1.1, exceptions >= 0.5, transformers >= 0.3
   default-language:    Haskell2010
