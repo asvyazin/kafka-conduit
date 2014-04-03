@@ -22,7 +22,7 @@ putBytes :: B.ByteString -> Put
 putBytes bytes = putWord32be (toEnum $ B.length bytes) >> putByteString bytes
 
 putString :: B.ByteString -> Put
-putString = putBytes
+putString str = putWord16be (toEnum $ B.length str) >> putByteString str
 
 putArray :: (a -> Put) -> [a] -> Put
 putArray put arr = let l = length arr in
@@ -62,10 +62,12 @@ putRawRequest r = putApiKey (apiKey r)
                   >> putInt16be (apiVersion r)
                   >> putInt32be (correlationId r)
                   >> putString (clientId r)
-                  >> putBytes (requestMessageBytes r)
+                  >> putByteString (requestMessageBytes r)
+
+putRawRequestWithPrefix :: RawRequest -> Put
+putRawRequestWithPrefix r = let body = toStrict $ runPut $ putRawRequest r
+                                l = B.length body
+                            in putWord32be (toEnum l) >> putByteString body
 
 sendRawRequests :: Monad m => Conduit RawRequest m B.ByteString
-sendRawRequests = C.map $ toStrict . runPut . putRawRequest
-
-class RequestMessage a where
-  toRawRequest :: Int32 -> B.ByteString -> a -> RawRequest
+sendRawRequests = C.map $ toStrict . runPut . putRawRequestWithPrefix

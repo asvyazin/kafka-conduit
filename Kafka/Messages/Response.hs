@@ -31,12 +31,10 @@ getArray get = do
   replicateM l get
 
 getBytes :: Get ByteString
-getBytes = do
-  l <- fromEnum <$> getWord32be
-  getByteString l
+getBytes = (fromEnum <$> getWord32be) >>= getByteString
 
 getString :: Get ByteString
-getString = getBytes
+getString = (fromEnum <$> getWord16be) >>= getByteString
 
 data RawResponse = RawResponse { correlationId :: Int32, responseMessageBytes :: ByteString } deriving (Eq, Show)
 
