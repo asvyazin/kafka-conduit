@@ -1,6 +1,7 @@
 module Kafka.Messages.ProduceResponse where
 
 import Kafka.Messages.Response
+import Kafka.Messages.Utils
 
 import Control.Applicative
 import Data.ByteString

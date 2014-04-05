@@ -1,6 +1,6 @@
 module Kafka.Messages.MessageSet where
 
-import Kafka.Messages.Request
+import Kafka.Messages.Utils
 
 import Data.ByteString
 import Data.Int

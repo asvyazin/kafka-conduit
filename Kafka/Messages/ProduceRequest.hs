@@ -1,7 +1,7 @@
 module Kafka.Messages.ProduceRequest where
 
 import Kafka.Messages.MessageSet
-import Kafka.Messages.Request
+import Kafka.Messages.Utils
 
 import Data.ByteString
 import Data.Int

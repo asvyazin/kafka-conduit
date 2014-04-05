@@ -6,6 +6,7 @@ import Kafka.Messages.MetadataRequest
 import Kafka.Messages.MetadataResponse
 import Kafka.Messages.Request
 import Kafka.Messages.Response
+import Kafka.Messages.ApiKey
 
 import Control.Monad.IO.Class
 import Data.Serialize.Get
