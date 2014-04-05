@@ -3,7 +3,7 @@ module Kafka.Messages.MetadataResponse where
 import Kafka.Messages.Response
 
 import Control.Applicative
-import Data.Binary.Get
+import Data.Serialize.Get
 import Data.ByteString
 import Data.Int
 

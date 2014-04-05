@@ -2,7 +2,7 @@ module Kafka.Messages.MetadataRequest where
 
 import Kafka.Messages.Request
 
-import Data.Binary.Put
+import Data.Serialize.Put
 import Data.ByteString
 import Data.Int
 

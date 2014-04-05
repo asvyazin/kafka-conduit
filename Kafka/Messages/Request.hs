@@ -2,9 +2,8 @@ module Kafka.Messages.Request where
 
 import Kafka.Messages.Utils
 
-import Data.Binary.Put
+import Data.Serialize.Put
 import qualified Data.ByteString as B
-import Data.ByteString.Lazy (toStrict)
 import Data.Conduit
 import qualified Data.Conduit.Combinators as C
 import Data.Int
@@ -65,9 +64,9 @@ putRawRequest r = putApiKey (apiKey r)
                   >> putByteString (requestMessageBytes r)
 
 putRawRequestWithPrefix :: RawRequest -> Put
-putRawRequestWithPrefix r = let body = toStrict $ runPut $ putRawRequest r
+putRawRequestWithPrefix r = let body = runPut $ putRawRequest r
                                 l = B.length body
                             in putWord32be (toEnum l) >> putByteString body
 
 sendRawRequests :: Monad m => Conduit RawRequest m B.ByteString
-sendRawRequests = C.map $ toStrict . runPut . putRawRequestWithPrefix
+sendRawRequests = C.map $ runPut . putRawRequestWithPrefix

@@ -7,7 +7,7 @@ import Control.Monad
 import Control.Monad.Catch
 import qualified Data.Attoparsec as P
 import Data.Attoparsec.Binary
-import Data.Binary.Get hiding (getBytes)
+import Data.Serialize.Get hiding (getBytes)
 import Data.ByteString
 import Data.Conduit
 import Data.Conduit.Attoparsec
