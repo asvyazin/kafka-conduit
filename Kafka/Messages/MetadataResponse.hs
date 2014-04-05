@@ -16,8 +16,6 @@ data Broker = Broker { nodeId :: NodeId
                      , host :: ByteString
                      , port :: Int32 } deriving (Eq, Show)
 
-type ErrorCode = Int16
-
 data TopicMetadata = TopicMetadata { topicErrorCode :: ErrorCode
                                    , topicName :: ByteString
                                    , partitionsMetadata :: [PartitionMetadata] } deriving (Eq, Show)

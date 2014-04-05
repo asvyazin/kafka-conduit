@@ -8,6 +8,9 @@ import Data.Conduit
 import qualified Data.Conduit.Combinators as C
 import Data.Int
 
+putInt8 :: Int8 -> Put
+putInt8 = putWord8 . enum
+
 putInt16be :: Int16 -> Put
 putInt16be = putWord16be . enum
 
