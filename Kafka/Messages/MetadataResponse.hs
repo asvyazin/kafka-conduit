@@ -27,10 +27,10 @@ data PartitionMetadata = PartitionMetadata { partitionErrorCode :: ErrorCode
                                            , isr :: [NodeId] } deriving (Eq, Show)
 
 getPartitionMetadata :: Get PartitionMetadata
-getPartitionMetadata = PartitionMetadata <$> getInt16be <*> getInt32be <*> getInt32be <*> getArray getInt32be <*> getArray getInt32be
+getPartitionMetadata = PartitionMetadata <$> getErrorCode <*> getInt32be <*> getInt32be <*> getArray getInt32be <*> getArray getInt32be
 
 getTopicMetadata :: Get TopicMetadata
-getTopicMetadata = TopicMetadata <$> getInt16be <*> getString <*> getArray getPartitionMetadata
+getTopicMetadata = TopicMetadata <$> getErrorCode <*> getString <*> getArray getPartitionMetadata
 
 getBroker :: Get Broker
 getBroker = Broker <$> getInt32be <*> getString <*> getInt32be

@@ -23,4 +23,4 @@ data ProduceResponsePartition = ProduceResponsePartition { produceResponsePartit
                                                          , produceResponsePartitionOffset :: Int64 } deriving (Eq, Show)
 
 getProduceResponsePartition :: Get ProduceResponsePartition
-getProduceResponsePartition = ProduceResponsePartition <$> getInt32be <*> getInt16be <*> getInt64be
+getProduceResponsePartition = ProduceResponsePartition <$> getInt32be <*> getErrorCode <*> getInt64be

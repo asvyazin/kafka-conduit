@@ -7,7 +7,27 @@ import Data.Int
 import Data.Serialize.Get
 import Data.Serialize.Put
 
-type ErrorCode = Int16
+data ErrorCode = ErrorUnknown
+               | ErrorNoError
+               | ErrorOffsetOutOfRange
+               | ErrorInvalidMessage
+               | ErrorUnknownTopicOrPartition
+               | ErrorInvalidMessageSize
+               | ErrorLeaderNotAvailable
+               | ErrorNotLeaderForPartition
+               | ErrorRequestTimedOut
+               | ErrorBrokerNotAvailable
+               | ErrorReplicaNotAvailable
+               | ErrorMessageSizeTooLarge
+               | ErrorStaleControllerEpochCode
+               | ErrorOffsetMetadataTooLargeCode
+               deriving (Eq, Show, Enum)
+
+fromErrorCode :: ErrorCode -> Int16
+fromErrorCode err = toEnum ((fromEnum err) - 1)
+
+toErrorCode :: Int16 -> ErrorCode
+toErrorCode code = toEnum ((fromEnum code) + 1)
 
 enum :: (Enum a, Enum b) => a -> b
 enum = toEnum . fromEnum
@@ -42,6 +62,9 @@ getInt32be = enum <$> getWord32be
 
 getInt16be :: Get Int16
 getInt16be = enum <$> getWord16be
+
+getErrorCode :: Get ErrorCode
+getErrorCode = toErrorCode <$> getInt16be
 
 getArray :: Get a -> Get [a]
 getArray get = do
