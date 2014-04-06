@@ -7,6 +7,8 @@ import Data.Int
 import Data.Serialize.Get
 import Data.Serialize.Put
 
+type ErrorCode = Int16
+
 enum :: (Enum a, Enum b) => a -> b
 enum = toEnum . fromEnum
 

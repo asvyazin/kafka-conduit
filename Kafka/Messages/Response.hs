@@ -11,8 +11,6 @@ import Data.Conduit
 import Data.Conduit.Attoparsec
 import Data.Int
 
-type ErrorCode = Int16
-
 anyInt32be :: P.Parser Int32
 anyInt32be = enum <$> anyWord32be
 

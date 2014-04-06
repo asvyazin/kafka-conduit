@@ -1,6 +1,5 @@
 module Kafka.Messages.MetadataResponse where
 
-import Kafka.Messages.Response
 import Kafka.Messages.Utils
 
 import Control.Applicative

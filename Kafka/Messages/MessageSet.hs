@@ -15,7 +15,8 @@ data MessageSetItem = MessageSetItem { messageOffset :: Int64
                                      , message :: Message } deriving (Eq, Show)
 
 putMessageSetItem :: MessageSetItem -> Put
-putMessageSetItem m = putInt64be (messageOffset m) >> putMessage (message m)
+putMessageSetItem m = let messageBytes = runPut $ putMessage $ message m in
+  putInt64be (messageOffset m) >> putBytes messageBytes
 
 data Message = Message { messageCrc :: Int32
                        , messageMagicByte :: Int8
