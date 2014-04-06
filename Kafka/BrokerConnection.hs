@@ -7,6 +7,10 @@ import Kafka.Messages.MetadataRequest
 import Kafka.Messages.MetadataResponse
 import Kafka.Messages.ProduceRequest
 import Kafka.Messages.ProduceResponse
+import Kafka.Messages.FetchRequest
+import Kafka.Messages.FetchResponse
+import Kafka.Messages.OffsetRequest
+import Kafka.Messages.OffsetResponse
 import Kafka.Messages.Request
 import qualified Kafka.Messages.Response as Resp (correlationId)
 import Kafka.Messages.Response
@@ -23,15 +27,33 @@ import Data.Serialize.Put
 
 data RequestMessage = MetadataRequestMessage MetadataRequest
                     | ProduceRequestMessage ProduceRequest
+                    | FetchRequestMessage FetchRequest
+                    | OffsetRequestMessage OffsetRequest
                     deriving (Eq, Show)
 
 getApiKey :: RequestMessage -> ApiKey
 getApiKey (MetadataRequestMessage _) = MetadataRequestApiKey
 getApiKey (ProduceRequestMessage _) = ProduceRequestApiKey
+getApiKey (FetchRequestMessage _) = FetchRequestApiKey
+getApiKey (OffsetRequestMessage _) = OffsetRequestApiKey
+
+putRequestMessage :: RequestMessage -> Put
+putRequestMessage (MetadataRequestMessage m) = putMetadataRequest m
+putRequestMessage (ProduceRequestMessage m) = putProduceRequest m
+putRequestMessage (FetchRequestMessage m) = putFetchRequest m
+putRequestMessage (OffsetRequestMessage m) = putOffsetRequest m
                       
 data ResponseMessage = MetadataResponseMessage MetadataResponse
                      | ProduceResponseMessage ProduceResponse
+                     | FetchResponseMessage FetchResponse
+                     | OffsetResponseMessage OffsetResponse
                      deriving (Eq, Show)
+
+deserializeResponseMessage :: ByteString -> ApiKey -> Either String ResponseMessage
+deserializeResponseMessage bytes MetadataRequestApiKey = MetadataResponseMessage <$> runGet getMetadataResponse bytes
+deserializeResponseMessage bytes ProduceRequestApiKey = ProduceResponseMessage <$> runGet getProduceResponse bytes
+deserializeResponseMessage bytes FetchRequestApiKey = FetchResponseMessage <$> runGet getFetchResponse bytes
+deserializeResponseMessage bytes OffsetRequestApiKey = OffsetResponseMessage <$> runGet getOffsetResponse bytes
                        
 data WaitingRequestsStore = WaitingRequestsStore { currentCorrelationId :: Int32
                                                  , requests :: M.Map Int32 ApiKey } deriving (Eq, Show)
@@ -44,14 +66,6 @@ putWaitingRequest (WaitingRequestsStore c r) k = (c, WaitingRequestsStore (c + 1
 
 getWaitingRequest :: WaitingRequestsStore -> Int32 -> (ApiKey, WaitingRequestsStore)
 getWaitingRequest s@(WaitingRequestsStore {requests = r}) c = (fromJust $ M.lookup c r, s {requests = M.delete c r})
-
-putRequestMessage :: RequestMessage -> Put
-putRequestMessage (MetadataRequestMessage m) = putMetadataRequest m
-putRequestMessage (ProduceRequestMessage m) = putProduceRequest m
-
-deserializeResponseMessage :: ByteString -> ApiKey -> Either String ResponseMessage
-deserializeResponseMessage bytes MetadataRequestApiKey = MetadataResponseMessage <$> runGet getMetadataResponse bytes
-deserializeResponseMessage bytes ProduceRequestApiKey = ProduceResponseMessage <$> runGet getProduceResponse bytes
 
 receiveResponseMessage :: Monad m => Conduit RawResponse (StateT WaitingRequestsStore m) ResponseMessage
 receiveResponseMessage = awaitForever $ \raw -> do
