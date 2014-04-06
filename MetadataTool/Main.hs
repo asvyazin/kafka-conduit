@@ -2,19 +2,17 @@
 
 module Main where
 
+import Kafka.BrokerConnection
 import Kafka.Messages.MetadataRequest
-import Kafka.Messages.MetadataResponse
 import Kafka.Messages.Request
 import Kafka.Messages.Response
-import Kafka.Messages.ApiKey
 
 import Control.Monad.IO.Class
-import Data.Serialize.Get
-import Data.Serialize.Put
+import Control.Monad.Trans.Class
+import Control.Monad.State
 import Data.ByteString (ByteString)
 import Data.Conduit
 import Data.Conduit.Network
-import Data.Maybe
 
 testClientId :: ByteString
 testClientId = "testClient"
@@ -26,10 +24,8 @@ logC = awaitForever $ \x -> do
 
 main :: IO ()
 main = runTCPClient (clientSettings 9092 "localhost") $ \appData -> do
-  let rawRequests = sendRawRequests =$= (appSink appData) :: Consumer RawRequest IO ()
-      rawResponses = (appSource appData) =$= receiveRawResponses :: Producer IO RawResponse
-  (yield $ RawRequest MetadataRequestApiKey 0 0 testClientId $ runPut $ putMetadataRequest $ MetadataRequest ["test"])
-    $$ rawRequests
-  rawResponses $$ do
-    maybeRawResp <- await
-    liftIO $ print $ runGet getMetadataResponse $ responseMessageBytes $ fromJust maybeRawResp
+  let rawRequests = transPipe lift $ sendRawRequests =$= (appSink appData)
+      rawResponses = transPipe lift $ (appSource appData) =$= receiveRawResponses
+  flip evalStateT emptyWaitingRequests $ do
+    (yield $ MetadataRequestMessage $ MetadataRequest ["test"]) $$ sendRequestMessage =$= rawRequests
+    rawResponses =$= receiveResponseMessage $$ (await >>= liftIO . print)

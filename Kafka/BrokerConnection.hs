@@ -17,11 +17,13 @@ import Data.ByteString
 import Data.Conduit
 import Data.Int
 import qualified Data.Map as M
+import Data.Maybe
 import Data.Serialize.Get
 import Data.Serialize.Put
 
 data RequestMessage = MetadataRequestMessage MetadataRequest
                     | ProduceRequestMessage ProduceRequest
+                    deriving (Eq, Show)
 
 getApiKey :: RequestMessage -> ApiKey
 getApiKey (MetadataRequestMessage _) = MetadataRequestApiKey
@@ -29,15 +31,19 @@ getApiKey (ProduceRequestMessage _) = ProduceRequestApiKey
                       
 data ResponseMessage = MetadataResponseMessage MetadataResponse
                      | ProduceResponseMessage ProduceResponse
+                     deriving (Eq, Show)
                        
 data WaitingRequestsStore = WaitingRequestsStore { currentCorrelationId :: Int32
                                                  , requests :: M.Map Int32 ApiKey } deriving (Eq, Show)
 
+emptyWaitingRequests :: WaitingRequestsStore
+emptyWaitingRequests = WaitingRequestsStore 0 M.empty
+
 putWaitingRequest :: WaitingRequestsStore -> ApiKey -> (Int32, WaitingRequestsStore)
-putWaitingRequest = undefined
+putWaitingRequest (WaitingRequestsStore c r) k = (c, WaitingRequestsStore (c + 1) (M.insert c k r))
 
 getWaitingRequest :: WaitingRequestsStore -> Int32 -> (ApiKey, WaitingRequestsStore)
-getWaitingRequest = undefined
+getWaitingRequest s@(WaitingRequestsStore {requests = r}) c = (fromJust $ M.lookup c r, s {requests = M.delete c r})
 
 putRequestMessage :: RequestMessage -> Put
 putRequestMessage (MetadataRequestMessage m) = putMetadataRequest m
