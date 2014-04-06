@@ -63,6 +63,9 @@ getInt32be = enum <$> getWord32be
 getInt16be :: Get Int16
 getInt16be = enum <$> getWord16be
 
+getInt8 :: Get Int8
+getInt8 = enum <$> getWord8
+
 getErrorCode :: Get ErrorCode
 getErrorCode = toErrorCode <$> getInt16be
 
