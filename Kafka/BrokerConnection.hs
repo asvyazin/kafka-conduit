@@ -16,6 +16,7 @@ import qualified Kafka.Messages.Response as Resp (correlationId)
 import Kafka.Messages.Response
 
 import Control.Applicative
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.ByteString
 import Data.Conduit
@@ -69,17 +70,17 @@ getWaitingRequest s@(WaitingRequestsStore {requests = r}) c = (fromJust $ M.look
 
 receiveResponseMessage :: Monad m => Conduit RawResponse (StateT WaitingRequestsStore m) ResponseMessage
 receiveResponseMessage = awaitForever $ \raw -> do
-  w <- get
+  w <- lift get
   let (key, newW) = getWaitingRequest w $ Resp.correlationId raw
-  put newW
+  lift $ put newW
   case deserializeResponseMessage (responseMessageBytes raw) key of
     Left _ -> return ()
     Right message -> yield message
 
 sendRequestMessage :: Monad m => Conduit RequestMessage (StateT WaitingRequestsStore m) RawRequest
 sendRequestMessage = awaitForever $ \req -> do
-  w <- get
+  w <- lift get
   let key = getApiKey req
   let (corrId, newW) = putWaitingRequest w key
-  put newW
+  lift $ put newW
   yield $ RawRequest key 0 corrId "testClient" $ runPut $ putRequestMessage req
