@@ -9,7 +9,7 @@ import Kafka.Messages.Response
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
-import Control.Monad.State
+import Control.Monad.Trans.State
 import Data.ByteString (ByteString)
 import Data.Conduit
 import Data.Conduit.Network
@@ -24,8 +24,8 @@ logC = awaitForever $ \x -> do
 
 main :: IO ()
 main = runTCPClient (clientSettings 9092 "localhost") $ \appData -> do
-  let rawRequests = transPipe lift $ sendRawRequests =$= (appSink appData)
-      rawResponses = transPipe lift $ (appSource appData) =$= receiveRawResponses
+  let rawRequests = transPipe lift $ sendRawRequests =$= appSink appData
+      rawResponses = transPipe lift $ appSource appData =$= receiveRawResponses
   flip evalStateT emptyWaitingRequests $ do
-    (yield $ MetadataRequestMessage $ MetadataRequest ["test"]) $$ sendRequestMessage =$= rawRequests
+    yield (MetadataRequestMessage $ MetadataRequest ["test"]) $$ sendRequestMessage =$= rawRequests
     rawResponses =$= receiveResponseMessage $$ (await >>= liftIO . print)

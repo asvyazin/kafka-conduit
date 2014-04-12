@@ -16,7 +16,7 @@ import qualified Kafka.Messages.Response as Resp (correlationId)
 import Kafka.Messages.Response
 
 import Control.Applicative
-import Control.Monad.State
+import Control.Monad.Trans.State
 import Data.ByteString
 import Data.Conduit
 import Data.Int
