@@ -31,19 +31,21 @@ data RequestMessage = MetadataRequestMessage MetadataRequest
                     | FetchRequestMessage FetchRequest
                     | OffsetRequestMessage OffsetRequest
                     deriving (Eq, Show)
+                    
+instance IsRequest RequestMessage where
+  getApiKey (MetadataRequestMessage m) = getApiKey m
+  getApiKey (ProduceRequestMessage m) = getApiKey m
+  getApiKey (FetchRequestMessage m) = getApiKey m
+  getApiKey (OffsetRequestMessage m) = getApiKey m
+  putRequest (MetadataRequestMessage m) = putRequest m
+  putRequest (ProduceRequestMessage m) = putRequest m
+  putRequest (FetchRequestMessage m) = putRequest m
+  putRequest (OffsetRequestMessage m) = putRequest m
+  getApiVersion (MetadataRequestMessage m) = getApiVersion m
+  getApiVersion (ProduceRequestMessage m) = getApiVersion m
+  getApiVersion (FetchRequestMessage m) = getApiVersion m
+  getApiVersion (OffsetRequestMessage m) = getApiVersion m
 
-getApiKey :: RequestMessage -> ApiKey
-getApiKey (MetadataRequestMessage _) = MetadataRequestApiKey
-getApiKey (ProduceRequestMessage _) = ProduceRequestApiKey
-getApiKey (FetchRequestMessage _) = FetchRequestApiKey
-getApiKey (OffsetRequestMessage _) = OffsetRequestApiKey
-
-putRequestMessage :: RequestMessage -> Put
-putRequestMessage (MetadataRequestMessage m) = putMetadataRequest m
-putRequestMessage (ProduceRequestMessage m) = putProduceRequest m
-putRequestMessage (FetchRequestMessage m) = putFetchRequest m
-putRequestMessage (OffsetRequestMessage m) = putOffsetRequest m
-                      
 data ResponseMessage = MetadataResponseMessage MetadataResponse
                      | ProduceResponseMessage ProduceResponse
                      | FetchResponseMessage FetchResponse
@@ -81,6 +83,7 @@ sendRequestMessage :: Monad m => Conduit RequestMessage (StateT WaitingRequestsS
 sendRequestMessage = awaitForever $ \req -> do
   w <- lift get
   let key = getApiKey req
+  let version = getApiVersion req
   let (corrId, newW) = putWaitingRequest w key
   lift $ put newW
-  yield $ RawRequest key 0 corrId "testClient" $ runPut $ putRequestMessage req
+  yield $ RawRequest key version corrId "testClient" $ runPut $ putRequest req

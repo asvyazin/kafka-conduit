@@ -1,5 +1,7 @@
 module Kafka.Messages.OffsetRequest where
 
+import Kafka.Messages.ApiKey
+import Kafka.Messages.Request
 import Kafka.Messages.Utils
 
 import Data.ByteString
@@ -31,3 +33,8 @@ putOffsetRequestPartitionItem :: OffsetRequestPartitionItem -> Put
 putOffsetRequestPartitionItem r = putInt32be (offsetRequestPartitionId r) >>
                                   putInt64be (offsetRequestTime r) >>
                                   putInt32be (offsetRequestMaxNumberOfOffsets r)
+
+instance IsRequest OffsetRequest where
+  getApiKey _ = OffsetRequestApiKey
+  getApiVersion _ = 0
+  putRequest = putOffsetRequest

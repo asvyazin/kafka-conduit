@@ -1,5 +1,7 @@
 module Kafka.Messages.MetadataRequest where
 
+import Kafka.Messages.ApiKey
+import Kafka.Messages.Request
 import Kafka.Messages.Utils
 
 import Data.Serialize.Put
@@ -13,3 +15,8 @@ data MetadataRequest = MetadataRequest { topics :: [ByteString] } deriving (Eq, 
 
 putMetadataRequest :: MetadataRequest -> Put
 putMetadataRequest = putArray putString . topics
+
+instance IsRequest MetadataRequest where
+  getApiKey _ = MetadataRequestApiKey
+  getApiVersion _ = 0
+  putRequest = putMetadataRequest

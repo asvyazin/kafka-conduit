@@ -1,6 +1,8 @@
 module Kafka.Messages.ProduceRequest where
 
+import Kafka.Messages.ApiKey
 import Kafka.Messages.MessageSet
+import Kafka.Messages.Request
 import Kafka.Messages.Utils
 
 import Data.ByteString
@@ -29,3 +31,8 @@ data ProduceRequestPartition = ProduceRequestPartition { produceRequestPartition
 putProduceRequestPartition :: ProduceRequestPartition -> Put
 putProduceRequestPartition r = putInt32be (produceRequestPartitionId r) >>
                                putMessageSet (produceRequestMessages r)
+
+instance IsRequest ProduceRequest where
+  getApiKey _ = ProduceRequestApiKey
+  getApiVersion _ = 0
+  putRequest = putProduceRequest

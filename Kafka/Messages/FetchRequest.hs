@@ -1,5 +1,7 @@
 module Kafka.Messages.FetchRequest where
 
+import Kafka.Messages.ApiKey
+import Kafka.Messages.Request
 import Kafka.Messages.Utils
 
 import Data.ByteString
@@ -35,3 +37,8 @@ putFetchRequestPartitionItem :: FetchRequestPartitionItem -> Put
 putFetchRequestPartitionItem r = putInt32be (fetchRequestPartitionId r) >>
                                  putInt64be (fetchRequestFetchOffset r) >>
                                  putInt32be (fetchRequestMaxBytes r)
+
+instance IsRequest FetchRequest where
+  getApiKey _ = FetchRequestApiKey
+  getApiVersion _ = 0
+  putRequest = putFetchRequest

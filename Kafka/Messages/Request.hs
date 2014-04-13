@@ -29,3 +29,13 @@ putRawRequestWithPrefix r = let body = runPut $ putRawRequest r
 
 sendRawRequests :: Monad m => Conduit RawRequest m B.ByteString
 sendRawRequests = C.map $ runPut . putRawRequestWithPrefix
+
+class IsRequest a where
+  getApiKey :: a -> ApiKey
+  putRequest :: a -> Put
+  getApiVersion :: a -> Int16
+
+instance IsRequest RawRequest where
+  getApiKey = apiKey
+  getApiVersion = apiVersion
+  putRequest = putRawRequest
