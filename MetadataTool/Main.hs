@@ -24,8 +24,6 @@ logC = awaitForever $ \x -> do
 
 main :: IO ()
 main = runTCPClient (clientSettings 9092 "localhost") $ \appData -> do
-  let rawRequests = transPipe lift $ sendRawRequests =$= appSink appData
-      rawResponses = transPipe lift $ appSource appData =$= receiveRawResponses
-  flip evalStateT emptyWaitingRequests $ do
-    yield (MetadataRequestMessage $ MetadataRequest ["test"]) $$ sendRequestMessage =$= rawRequests
-    rawResponses =$= receiveResponseMessage $$ (await >>= liftIO . print)
+  conn <- brokerConnection "testClient" appData
+  yield (MetadataRequestMessage $ MetadataRequest ["test"]) $$ requestMessageSink conn
+  responseMessageSource conn $$ (await >>= liftIO . print)

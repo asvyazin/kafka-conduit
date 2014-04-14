@@ -1,6 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RankNTypes #-}
 
-module Kafka.BrokerConnection where
+module Kafka.BrokerConnection (BrokerConnection
+                              , brokerConnection
+                              , requestMessageSink
+                              , responseMessageSource
+                              , RequestMessage(..)
+                              , ResponseMessage(..)) where
 
 import Kafka.Messages.ApiKey
 import Kafka.Messages.MetadataRequest
@@ -16,10 +21,13 @@ import qualified Kafka.Messages.Response as Resp (correlationId)
 import Kafka.Messages.Response
 
 import Control.Applicative
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.ByteString
 import Data.Conduit
+import Data.Conduit.Network
 import Data.Int
 import qualified Data.Map as M
 import Data.Maybe
@@ -70,20 +78,45 @@ putWaitingRequest (WaitingRequestsStore c r) k = (c, WaitingRequestsStore (c + 1
 getWaitingRequest :: WaitingRequestsStore -> Int32 -> (ApiKey, WaitingRequestsStore)
 getWaitingRequest s@(WaitingRequestsStore {requests = r}) c = (fromJust $ M.lookup c r, s {requests = M.delete c r})
 
-receiveResponseMessage :: Monad m => Conduit RawResponse (StateT WaitingRequestsStore m) ResponseMessage
-receiveResponseMessage = awaitForever $ \raw -> do
-  w <- lift get
-  let (key, newW) = getWaitingRequest w $ Resp.correlationId raw
-  lift $ put newW
+data BrokerConnection = BrokerConnection { waitingRequests :: TVar WaitingRequestsStore
+                                         , appData :: AppData
+                                         , connectionClientId :: ByteString }
+
+brokerConnection :: ByteString -> AppData -> IO BrokerConnection
+brokerConnection cid ad = do
+  w <- atomically $ newTVar emptyWaitingRequests
+  return $ BrokerConnection w ad cid
+
+getWaitingRequestSTM :: TVar WaitingRequestsStore -> Int32 -> STM ApiKey
+getWaitingRequestSTM store corrId = do
+  w <- readTVar store
+  let (key, newW) = getWaitingRequest w corrId
+  writeTVar store newW
+  return key
+
+putWaitingRequestSTM :: TVar WaitingRequestsStore -> ApiKey -> STM Int32
+putWaitingRequestSTM store key = do
+  w <- readTVar store
+  let (corrId, newW) = putWaitingRequest w key
+  writeTVar store newW
+  return corrId
+
+receiveResponseMessage :: BrokerConnection -> Conduit RawResponse IO ResponseMessage
+receiveResponseMessage conn = awaitForever $ \raw -> do
+  key <- lift $ atomically $ getWaitingRequestSTM (waitingRequests conn) $ Resp.correlationId raw
   case deserializeResponseMessage (responseMessageBytes raw) key of
     Left _ -> return ()
     Right message -> yield message
 
-sendRequestMessage :: Monad m => Conduit RequestMessage (StateT WaitingRequestsStore m) RawRequest
-sendRequestMessage = awaitForever $ \req -> do
-  w <- lift get
+sendRequestMessage :: BrokerConnection -> Conduit RequestMessage IO RawRequest
+sendRequestMessage conn = awaitForever $ \req -> do
   let key = getApiKey req
   let version = getApiVersion req
-  let (corrId, newW) = putWaitingRequest w key
-  lift $ put newW
-  yield $ RawRequest key version corrId "testClient" $ runPut $ putRequest req
+  corrId <- lift $ atomically $ putWaitingRequestSTM (waitingRequests conn) key
+  yield $ RawRequest key version corrId (connectionClientId conn) $ runPut $ putRequest req
+
+requestMessageSink :: BrokerConnection -> Consumer RequestMessage IO ()
+requestMessageSink conn = sendRequestMessage conn =$= sendRawRequests =$= appSink (appData conn)
+
+responseMessageSource :: BrokerConnection -> Producer IO ResponseMessage
+responseMessageSource conn = appSource (appData conn) =$= receiveRawResponses =$= receiveResponseMessage conn
