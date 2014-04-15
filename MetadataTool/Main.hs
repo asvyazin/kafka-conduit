@@ -4,18 +4,18 @@ module Main where
 
 import Kafka.BrokerConnection
 import Kafka.Messages.MetadataRequest
-import Kafka.Messages.Request
-import Kafka.Messages.Response
 
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.State
 import Data.ByteString (ByteString)
 import Data.Conduit
 import Data.Conduit.Network
+import Network.Socket
 
 testClientId :: ByteString
 testClientId = "testClient"
+
+testTopicName :: ByteString
+testTopicName = "test"
 
 logC :: (MonadIO m, Show a) => Conduit a m a
 logC = awaitForever $ \x -> do
@@ -23,7 +23,7 @@ logC = awaitForever $ \x -> do
   yield x
 
 main :: IO ()
-main = runTCPClient (clientSettings 9092 "localhost") $ \appData -> do
-  conn <- brokerConnection "testClient" appData
-  yield (MetadataRequestMessage $ MetadataRequest ["test"]) $$ requestMessageSink conn
+main = withSocketsDo $ runTCPClient (clientSettings 9092 "localhost") $ \appData -> do
+  conn <- brokerConnection testClientId appData
+  yield (MetadataRequestMessage $ MetadataRequest [testTopicName]) $$ requestMessageSink conn
   responseMessageSource conn $$ (await >>= liftIO . print)
