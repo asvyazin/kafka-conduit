@@ -5,6 +5,9 @@ module Main where
 import Kafka.BrokerConnection
 import Kafka.Messages.MetadataRequest
 
+import Control.Applicative
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TMVar
 import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
 import Data.Conduit
@@ -25,5 +28,5 @@ logC = awaitForever $ \x -> do
 main :: IO ()
 main = withSocketsDo $ runTCPClient (clientSettings 9092 "localhost") $ \appData -> do
   conn <- brokerConnection testClientId appData
-  yield (MetadataRequestMessage $ MetadataRequest [testTopicName]) $$ requestMessageSink conn
-  responseMessageSource conn $$ (await >>= liftIO . print)
+  let metadataRequest = MetadataRequestMessage $ MetadataRequest [testTopicName]
+  requestAsync conn metadataRequest >>= atomically . readTMVar >>= print

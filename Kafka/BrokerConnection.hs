@@ -2,8 +2,7 @@
 
 module Kafka.BrokerConnection (BrokerConnection
                               , brokerConnection
-                              , requestMessageSink
-                              , responseMessageSource
+                              , requestAsync
                               , RequestMessage(..)
                               , ResponseMessage(..)) where
 
@@ -22,6 +21,7 @@ import Kafka.Messages.Response
 
 import Control.Applicative
 import Control.Concurrent.STM
+import Control.Concurrent.STM.TMVar
 import Control.Concurrent.STM.TVar
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
@@ -65,17 +65,20 @@ deserializeResponseMessage bytes MetadataRequestApiKey = MetadataResponseMessage
 deserializeResponseMessage bytes ProduceRequestApiKey = ProduceResponseMessage <$> runGet getProduceResponse bytes
 deserializeResponseMessage bytes FetchRequestApiKey = FetchResponseMessage <$> runGet getFetchResponse bytes
 deserializeResponseMessage bytes OffsetRequestApiKey = OffsetResponseMessage <$> runGet getOffsetResponse bytes
-                       
+
+data WaitingRequest = WaitingRequest { requestApiKey :: ApiKey
+                                     , responsePromise :: TMVar ResponseMessage }
+                      
 data WaitingRequestsStore = WaitingRequestsStore { currentCorrelationId :: Int32
-                                                 , requests :: M.Map Int32 ApiKey } deriving (Eq, Show)
+                                                 , requests :: M.Map Int32 WaitingRequest }
 
 emptyWaitingRequests :: WaitingRequestsStore
 emptyWaitingRequests = WaitingRequestsStore 0 M.empty
 
-putWaitingRequest :: WaitingRequestsStore -> ApiKey -> (Int32, WaitingRequestsStore)
+putWaitingRequest :: WaitingRequestsStore -> WaitingRequest -> (Int32, WaitingRequestsStore)
 putWaitingRequest (WaitingRequestsStore c r) k = (c, WaitingRequestsStore (c + 1) (M.insert c k r))
 
-getWaitingRequest :: WaitingRequestsStore -> Int32 -> (ApiKey, WaitingRequestsStore)
+getWaitingRequest :: WaitingRequestsStore -> Int32 -> (WaitingRequest, WaitingRequestsStore)
 getWaitingRequest s@(WaitingRequestsStore {requests = r}) c = (fromJust $ M.lookup c r, s {requests = M.delete c r})
 
 data BrokerConnection = BrokerConnection { waitingRequests :: TVar WaitingRequestsStore
@@ -87,36 +90,38 @@ brokerConnection cid ad = do
   w <- atomically $ newTVar emptyWaitingRequests
   return $ BrokerConnection w ad cid
 
-getWaitingRequestSTM :: TVar WaitingRequestsStore -> Int32 -> STM ApiKey
+getWaitingRequestSTM :: TVar WaitingRequestsStore -> Int32 -> STM WaitingRequest
 getWaitingRequestSTM store corrId = do
   w <- readTVar store
   let (key, newW) = getWaitingRequest w corrId
   writeTVar store newW
   return key
 
-putWaitingRequestSTM :: TVar WaitingRequestsStore -> ApiKey -> STM Int32
+putWaitingRequestSTM :: TVar WaitingRequestsStore -> WaitingRequest -> STM Int32
 putWaitingRequestSTM store key = do
   w <- readTVar store
   let (corrId, newW) = putWaitingRequest w key
   writeTVar store newW
   return corrId
 
-receiveResponseMessage :: BrokerConnection -> Conduit RawResponse IO ResponseMessage
-receiveResponseMessage conn = awaitForever $ \raw -> do
-  key <- lift $ atomically $ getWaitingRequestSTM (waitingRequests conn) $ Resp.correlationId raw
-  case deserializeResponseMessage (responseMessageBytes raw) key of
-    Left _ -> return ()
-    Right message -> yield message
+doReceiveResponse :: BrokerConnection -> IO ()
+doReceiveResponse conn = appSource (appData conn) =$= receiveRawResponses $$ (await >>= (lift . atomically . doReceiveResponseSTM conn . fromJust))
 
-sendRequestMessage :: BrokerConnection -> Conduit RequestMessage IO RawRequest
-sendRequestMessage conn = awaitForever $ \req -> do
+doReceiveResponseSTM :: BrokerConnection -> RawResponse -> STM ()
+doReceiveResponseSTM conn raw = do
+  reqData <- getWaitingRequestSTM (waitingRequests conn) $ Resp.correlationId raw
+  case deserializeResponseMessage (responseMessageBytes raw) (requestApiKey reqData) of
+    Left _ -> return ()
+    Right message -> do
+      putTMVar (responsePromise reqData) message
+
+requestAsync :: BrokerConnection -> RequestMessage -> IO (TMVar ResponseMessage)
+requestAsync conn req = let sink = sendRawRequests =$= appSink (appData conn) in do
   let key = getApiKey req
   let version = getApiVersion req
-  corrId <- lift $ atomically $ putWaitingRequestSTM (waitingRequests conn) key
-  yield $ RawRequest key version corrId (connectionClientId conn) $ runPut $ putRequest req
-
-requestMessageSink :: BrokerConnection -> Consumer RequestMessage IO ()
-requestMessageSink conn = sendRequestMessage conn =$= sendRawRequests =$= appSink (appData conn)
-
-responseMessageSource :: BrokerConnection -> Producer IO ResponseMessage
-responseMessageSource conn = appSource (appData conn) =$= receiveRawResponses =$= receiveResponseMessage conn
+  let bytes = runPut $ putRequest req
+  promise <- newEmptyTMVarIO
+  corrId <- atomically $ putWaitingRequestSTM (waitingRequests conn) (WaitingRequest key promise)
+  let rawRequest = RawRequest key version corrId (connectionClientId conn) bytes
+  yield rawRequest $$ sink
+  return promise
