@@ -26,7 +26,9 @@ logC = awaitForever $ \x -> do
   yield x
 
 main :: IO ()
-main = withSocketsDo $ runTCPClient (clientSettings 9092 "localhost") $ \appData -> do
-  conn <- brokerConnection testClientId appData
-  let metadataRequest = MetadataRequestMessage $ MetadataRequest [testTopicName]
-  requestAsync conn metadataRequest >>= atomically . readTMVar >>= print
+main = withSocketsDo $ runTCPClient (clientSettings 9092 "localhost") $ \appData ->
+  withBrokerConnection testClientId appData $ \conn -> do
+    let metadataRequest = MetadataRequestMessage $ MetadataRequest [testTopicName]
+    futureResponse <- requestAsync conn metadataRequest
+    response <- atomically $ readTMVar futureResponse
+    print response

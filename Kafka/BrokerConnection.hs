@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings, RankNTypes #-}
 
 module Kafka.BrokerConnection (BrokerConnection
-                              , brokerConnection
+                              , withBrokerConnection
                               , requestAsync
                               , RequestMessage(..)
                               , ResponseMessage(..)) where
@@ -20,6 +20,7 @@ import qualified Kafka.Messages.Response as Resp (correlationId)
 import Kafka.Messages.Response
 
 import Control.Applicative
+import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.STM.TVar
@@ -27,6 +28,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Data.ByteString
 import Data.Conduit
+import qualified Data.Conduit as C (yield)
 import Data.Conduit.Network
 import Data.Int
 import qualified Data.Map as M
@@ -83,12 +85,25 @@ getWaitingRequest s@(WaitingRequestsStore {requests = r}) c = (fromJust $ M.look
 
 data BrokerConnection = BrokerConnection { waitingRequests :: TVar WaitingRequestsStore
                                          , appData :: AppData
-                                         , connectionClientId :: ByteString }
+                                         , connectionClientId :: ByteString
+                                         , responsesThread :: ThreadId }
 
 brokerConnection :: ByteString -> AppData -> IO BrokerConnection
 brokerConnection cid ad = do
   w <- atomically $ newTVar emptyWaitingRequests
-  return $ BrokerConnection w ad cid
+  thread <- forkIO $ receiveResponsesLoop w ad
+  return $ BrokerConnection w ad cid thread
+
+withBrokerConnection :: ByteString -> AppData -> (BrokerConnection -> IO a) -> IO a
+withBrokerConnection cid ad callback = do
+  w <- atomically $ newTVar emptyWaitingRequests
+  thread <- forkIO $ receiveResponsesLoop w ad
+  result <- callback $ BrokerConnection w ad cid thread
+  killThread thread
+  return result
+
+receiveResponsesLoop :: TVar WaitingRequestsStore -> AppData -> IO ()
+receiveResponsesLoop requests app = doReceiveResponse requests app >> receiveResponsesLoop requests app
 
 getWaitingRequestSTM :: TVar WaitingRequestsStore -> Int32 -> STM WaitingRequest
 getWaitingRequestSTM store corrId = do
@@ -104,12 +119,12 @@ putWaitingRequestSTM store key = do
   writeTVar store newW
   return corrId
 
-doReceiveResponse :: BrokerConnection -> IO ()
-doReceiveResponse conn = appSource (appData conn) =$= receiveRawResponses $$ (await >>= (lift . atomically . doReceiveResponseSTM conn . fromJust))
+doReceiveResponse :: TVar WaitingRequestsStore -> AppData -> IO ()
+doReceiveResponse requests app = appSource app =$= receiveRawResponses $$ (await >>= (lift . atomically . doReceiveResponseSTM requests . fromJust))
 
-doReceiveResponseSTM :: BrokerConnection -> RawResponse -> STM ()
-doReceiveResponseSTM conn raw = do
-  reqData <- getWaitingRequestSTM (waitingRequests conn) $ Resp.correlationId raw
+doReceiveResponseSTM :: TVar WaitingRequestsStore -> RawResponse -> STM ()
+doReceiveResponseSTM requests raw = do
+  reqData <- getWaitingRequestSTM requests $ Resp.correlationId raw
   case deserializeResponseMessage (responseMessageBytes raw) (requestApiKey reqData) of
     Left _ -> return ()
     Right message -> do
@@ -123,5 +138,5 @@ requestAsync conn req = let sink = sendRawRequests =$= appSink (appData conn) in
   promise <- newEmptyTMVarIO
   corrId <- atomically $ putWaitingRequestSTM (waitingRequests conn) (WaitingRequest key promise)
   let rawRequest = RawRequest key version corrId (connectionClientId conn) bytes
-  yield rawRequest $$ sink
+  C.yield rawRequest $$ sink
   return promise
