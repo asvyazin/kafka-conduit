@@ -22,10 +22,7 @@ import Kafka.Messages.Response
 import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Concurrent.STM.TMVar
-import Control.Concurrent.STM.TVar
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.State
 import Data.ByteString
 import Data.Conduit
 import qualified Data.Conduit as C (yield)
@@ -103,7 +100,7 @@ withBrokerConnection cid ad callback = do
   return result
 
 receiveResponsesLoop :: TVar WaitingRequestsStore -> AppData -> IO ()
-receiveResponsesLoop requests app = doReceiveResponse requests app >> receiveResponsesLoop requests app
+receiveResponsesLoop reqs app = doReceiveResponse reqs app >> receiveResponsesLoop reqs app
 
 getWaitingRequestSTM :: TVar WaitingRequestsStore -> Int32 -> STM WaitingRequest
 getWaitingRequestSTM store corrId = do
@@ -120,11 +117,11 @@ putWaitingRequestSTM store key = do
   return corrId
 
 doReceiveResponse :: TVar WaitingRequestsStore -> AppData -> IO ()
-doReceiveResponse requests app = appSource app =$= receiveRawResponses $$ (await >>= (lift . atomically . doReceiveResponseSTM requests . fromJust))
+doReceiveResponse reqs app = appSource app =$= receiveRawResponses $$ (await >>= (lift . atomically . doReceiveResponseSTM reqs . fromJust))
 
 doReceiveResponseSTM :: TVar WaitingRequestsStore -> RawResponse -> STM ()
-doReceiveResponseSTM requests raw = do
-  reqData <- getWaitingRequestSTM requests $ Resp.correlationId raw
+doReceiveResponseSTM reqs raw = do
+  reqData <- getWaitingRequestSTM reqs $ Resp.correlationId raw
   case deserializeResponseMessage (responseMessageBytes raw) (requestApiKey reqData) of
     Left _ -> return ()
     Right message -> do
