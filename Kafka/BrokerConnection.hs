@@ -26,6 +26,7 @@ import Control.Monad.Trans.Class
 import Data.ByteString
 import Data.Conduit
 import qualified Data.Conduit as C (yield)
+import qualified Data.Conduit.Combinators as CC (map)
 import Data.Conduit.Network
 import Data.Int
 import qualified Data.Map as M
@@ -124,11 +125,10 @@ doReceiveResponseSTM reqs raw = do
   reqData <- getWaitingRequestSTM reqs $ Resp.correlationId raw
   case deserializeResponseMessage (responseMessageBytes raw) (requestApiKey reqData) of
     Left _ -> return ()
-    Right message -> do
-      putTMVar (responsePromise reqData) message
+    Right message -> putTMVar (responsePromise reqData) message
 
 requestAsync :: BrokerConnection -> RequestMessage -> IO (TMVar ResponseMessage)
-requestAsync conn req = let sink = sendRawRequests =$= appSink (appData conn) in do
+requestAsync conn req = let sink = CC.map serializeRawRequest =$= appSink (appData conn) in do
   let key = getApiKey req
   let version = getApiVersion req
   let bytes = runPut $ putRequest req

@@ -5,8 +5,6 @@ import Kafka.Messages.Utils
 
 import Data.Serialize.Put
 import qualified Data.ByteString as B
-import Data.Conduit
-import qualified Data.Conduit.Combinators as C
 import Data.Int
 
 data RawRequest = RawRequest { apiKey :: ApiKey
@@ -22,13 +20,10 @@ putRawRequest r = putApiKey (apiKey r)
                   >> putString (clientId r)
                   >> putByteString (requestMessageBytes r)
 
-putRawRequestWithPrefix :: RawRequest -> Put
-putRawRequestWithPrefix r = let body = runPut $ putRawRequest r
-                                l = B.length body
-                            in putWord32be (toEnum l) >> putByteString body
-
-sendRawRequests :: Monad m => Conduit RawRequest m B.ByteString
-sendRawRequests = C.map $ runPut . putRawRequestWithPrefix
+serializeRawRequest :: RawRequest -> B.ByteString
+serializeRawRequest r = let body = runPut $ putRawRequest r
+                            l = B.length body
+                        in runPut (putWord32be (toEnum l) >> putByteString body)
 
 class IsRequest a where
   getApiKey :: a -> ApiKey
