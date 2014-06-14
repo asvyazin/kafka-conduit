@@ -50,19 +50,7 @@ library
 
 executable MetadataTool
   main-is:             Main.hs
-  hs-source-dirs:      MetadataTool, .
+  hs-source-dirs:      MetadataTool
 --  other-modules:
-  build-depends:       attoparsec >= 0.11,
-                       attoparsec-binary >= 0.2,
-                       base >= 4.6,
-                       bytestring >= 0.10,
-                       cereal >= 0.4,
-                       conduit >= 1.1,
-                       conduit-combinators >= 0.2.4.1,
-                       conduit-extra >= 1.1,
-                       containers >= 0.5,
-                       exceptions >= 0.5,
-                       network >= 2.4,
-                       stm >= 2.4,
-                       transformers >= 0.3
+  build-depends:       kafka-conduit
   default-language:    Haskell2010
