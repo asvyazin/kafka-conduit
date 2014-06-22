@@ -4,22 +4,19 @@ import Kafka.Messages.Utils
 
 import Control.Applicative
 import Control.Monad.Catch
-import qualified Data.Attoparsec as P
-import Data.Attoparsec.Binary
 import Data.ByteString
 import Data.Conduit
-import Data.Conduit.Attoparsec
+import Data.Conduit.Cereal
 import Data.Int
-
-anyInt32be :: P.Parser Int32
-anyInt32be = enum <$> anyWord32be
+import Data.Serialize
+import Data.Serialize.Get
 
 data RawResponse = RawResponse { correlationId :: Int32, responseMessageBytes :: ByteString } deriving (Eq, Show)
 
-rawResponse :: P.Parser RawResponse
+rawResponse :: Get RawResponse
 rawResponse = do
-  len <- fromEnum <$> anyWord32be
-  RawResponse <$> anyInt32be <*> P.take (len - 4)
+  len <- fromEnum <$> getWord32be
+  RawResponse <$> getInt32be <*> getByteString (len - 4)
 
 receiveRawResponses :: MonadThrow m => Conduit ByteString m RawResponse
-receiveRawResponses = mapOutput snd $ conduitParser rawResponse
+receiveRawResponses = conduitGet rawResponse

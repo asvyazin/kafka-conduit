@@ -32,11 +32,10 @@ library
                        Kafka.BrokerConnection
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       attoparsec >= 0.11,
-                       attoparsec-binary >= 0.2,
-                       base >=4.6 && <4.7,
+  build-depends:       base >=4.6 && <4.7,
                        bytestring >= 0.10,
                        cereal >= 0.4,
+                       cereal-conduit >= 0.7,
                        conduit >= 1.1,
                        conduit-combinators >= 0.2.4.1,
                        conduit-extra >= 1.1,
