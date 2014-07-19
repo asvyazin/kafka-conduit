@@ -7,15 +7,11 @@ module Kafka.BrokerConnection (BrokerConnection
                               , ResponseMessage(..)) where
 
 import Kafka.Messages.ApiKey
-import Kafka.Messages.MetadataRequest
-import Kafka.Messages.MetadataResponse
-import Kafka.Messages.ProduceRequest
-import Kafka.Messages.ProduceResponse
-import Kafka.Messages.FetchRequest
-import Kafka.Messages.FetchResponse
-import Kafka.Messages.OffsetRequest
-import Kafka.Messages.OffsetResponse
-import Kafka.Messages.Request
+import qualified Kafka.Messages.Metadata as Metadata
+import qualified Kafka.Messages.Produce as Produce
+import qualified Kafka.Messages.Fetch as Fetch
+import qualified Kafka.Messages.Offset as Offset
+import qualified Kafka.Messages.Request as Request
 import qualified Kafka.Messages.Response as Resp (correlationId)
 import Kafka.Messages.Response
 
@@ -34,37 +30,41 @@ import Data.Maybe
 import Data.Serialize.Get
 import Data.Serialize.Put
 
-data RequestMessage = MetadataRequestMessage MetadataRequest
-                    | ProduceRequestMessage ProduceRequest
-                    | FetchRequestMessage FetchRequest
-                    | OffsetRequestMessage OffsetRequest
+data RequestMessage = MetadataRequestMessage Metadata.Request
+                    | ProduceRequestMessage Produce.Request
+                    | FetchRequestMessage Fetch.Request
+                    | OffsetRequestMessage Offset.Request
                     deriving (Eq, Show)
-                    
-instance IsRequest RequestMessage where
-  getApiKey (MetadataRequestMessage m) = getApiKey m
-  getApiKey (ProduceRequestMessage m) = getApiKey m
-  getApiKey (FetchRequestMessage m) = getApiKey m
-  getApiKey (OffsetRequestMessage m) = getApiKey m
-  putRequest (MetadataRequestMessage m) = putRequest m
-  putRequest (ProduceRequestMessage m) = putRequest m
-  putRequest (FetchRequestMessage m) = putRequest m
-  putRequest (OffsetRequestMessage m) = putRequest m
-  getApiVersion (MetadataRequestMessage m) = getApiVersion m
-  getApiVersion (ProduceRequestMessage m) = getApiVersion m
-  getApiVersion (FetchRequestMessage m) = getApiVersion m
-  getApiVersion (OffsetRequestMessage m) = getApiVersion m
 
-data ResponseMessage = MetadataResponseMessage MetadataResponse
-                     | ProduceResponseMessage ProduceResponse
-                     | FetchResponseMessage FetchResponse
-                     | OffsetResponseMessage OffsetResponse
+apiKey :: RequestMessage -> ApiKey
+apiKey (MetadataRequestMessage _) = Metadata.apiKey
+apiKey (ProduceRequestMessage _) = Produce.apiKey
+apiKey (FetchRequestMessage _) = Fetch.apiKey
+apiKey (OffsetRequestMessage _) = Offset.apiKey
+
+apiVersion :: RequestMessage -> Int16
+apiVersion (MetadataRequestMessage _) = Metadata.apiVersion
+apiVersion (ProduceRequestMessage _) = Produce.apiVersion
+apiVersion (FetchRequestMessage _) = Fetch.apiVersion
+apiVersion (OffsetRequestMessage _) = Offset.apiVersion
+
+putRequest :: RequestMessage -> Put
+putRequest (MetadataRequestMessage msg) = Metadata.putRequest msg
+putRequest (ProduceRequestMessage msg) = Produce.putRequest msg
+putRequest (FetchRequestMessage msg) = Fetch.putRequest msg
+putRequest (OffsetRequestMessage msg) = Offset.putRequest msg
+
+data ResponseMessage = MetadataResponseMessage Metadata.Response
+                     | ProduceResponseMessage Produce.Response
+                     | FetchResponseMessage Fetch.Response
+                     | OffsetResponseMessage Offset.Response
                      deriving (Eq, Show)
 
 deserializeResponseMessage :: ByteString -> ApiKey -> Either String ResponseMessage
-deserializeResponseMessage bytes MetadataRequestApiKey = MetadataResponseMessage <$> runGet getMetadataResponse bytes
-deserializeResponseMessage bytes ProduceRequestApiKey = ProduceResponseMessage <$> runGet getProduceResponse bytes
-deserializeResponseMessage bytes FetchRequestApiKey = FetchResponseMessage <$> runGet getFetchResponse bytes
-deserializeResponseMessage bytes OffsetRequestApiKey = OffsetResponseMessage <$> runGet getOffsetResponse bytes
+deserializeResponseMessage bytes Metadata = MetadataResponseMessage <$> runGet Metadata.getResponse bytes
+deserializeResponseMessage bytes Produce = ProduceResponseMessage <$> runGet Produce.getResponse bytes
+deserializeResponseMessage bytes Fetch = FetchResponseMessage <$> runGet Fetch.getResponse bytes
+deserializeResponseMessage bytes Offset = OffsetResponseMessage <$> runGet Offset.getResponse bytes
 
 data WaitingRequest = WaitingRequest { requestApiKey :: ApiKey
                                      , responsePromise :: TMVar ResponseMessage }
@@ -128,12 +128,12 @@ doReceiveResponseSTM reqs raw = do
     Right message -> putTMVar (responsePromise reqData) message
 
 requestAsync :: BrokerConnection -> RequestMessage -> IO (TMVar ResponseMessage)
-requestAsync conn req = let sink = CC.map serializeRawRequest =$= appSink (appData conn) in do
-  let key = getApiKey req
-  let version = getApiVersion req
+requestAsync conn req = let sink = CC.map Request.serializeRawRequest =$= appSink (appData conn) in do
+  let key = apiKey req
+  let version = apiVersion req
   let bytes = runPut $ putRequest req
   promise <- newEmptyTMVarIO
   corrId <- atomically $ putWaitingRequestSTM (waitingRequests conn) (WaitingRequest key promise)
-  let rawRequest = RawRequest key version corrId (connectionClientId conn) bytes
+  let rawRequest = Request.RawRequest key version corrId (connectionClientId conn) bytes
   C.yield rawRequest $$ sink
   return promise

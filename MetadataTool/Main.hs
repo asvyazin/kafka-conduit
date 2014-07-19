@@ -3,7 +3,7 @@
 module Main where
 
 import Kafka.BrokerConnection
-import Kafka.Messages.MetadataRequest
+import qualified Kafka.Messages.Metadata as Metadata
 
 import Control.Concurrent.STM
 import Control.Monad.IO.Class
@@ -26,7 +26,7 @@ logC = awaitForever $ \x -> do
 main :: IO ()
 main = withSocketsDo $ runTCPClient (clientSettings 9092 "localhost") $ \appData ->
   withBrokerConnection testClientId appData $ \conn -> do
-    let metadataRequest = MetadataRequestMessage $ MetadataRequest [testTopicName]
+    let metadataRequest = MetadataRequestMessage $ Metadata.Request [testTopicName]
     futureResponse <- requestAsync conn metadataRequest
     response <- atomically $ readTMVar futureResponse
     print response

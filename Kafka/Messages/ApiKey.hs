@@ -1,29 +1,29 @@
-module Kafka.Messages.ApiKey where
+module Kafka.Messages.ApiKey (ApiKey(..), fromApiKey, putApiKey) where
 
 import Kafka.Messages.Utils
 
 import Data.Int
 import Data.Serialize.Put
 
-data ApiKey = ProduceRequestApiKey
-            | FetchRequestApiKey
-            | OffsetRequestApiKey
-            | MetadataRequestApiKey
-            | LeaderAndIsrRequestApiKey
-            | StopReplicaRequestApiKey
-            | OffsetCommitRequestApiKey
-            | OffsetFetchRequestApiKey
+data ApiKey = Produce
+            | Fetch
+            | Offset
+            | Metadata
+            | LeaderAndIsr
+            | StopReplica
+            | OffsetCommit
+            | OffsetFetch
             deriving (Eq, Show)
 
 fromApiKey :: ApiKey -> Int16
-fromApiKey ProduceRequestApiKey = 0
-fromApiKey FetchRequestApiKey = 1
-fromApiKey OffsetRequestApiKey = 2
-fromApiKey MetadataRequestApiKey = 3
-fromApiKey LeaderAndIsrRequestApiKey = 4
-fromApiKey StopReplicaRequestApiKey = 5
-fromApiKey OffsetCommitRequestApiKey = 8
-fromApiKey OffsetFetchRequestApiKey = 9
+fromApiKey Produce = 0
+fromApiKey Fetch = 1
+fromApiKey Offset = 2
+fromApiKey Metadata = 3
+fromApiKey LeaderAndIsr = 4
+fromApiKey StopReplica = 5
+fromApiKey OffsetCommit = 8
+fromApiKey OffsetFetch = 9
 
 putApiKey :: ApiKey -> Put
 putApiKey = putInt16be . fromApiKey
